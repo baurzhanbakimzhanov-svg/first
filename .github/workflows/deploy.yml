@@ -46,15 +46,17 @@ jobs:
             # Обновляем образ
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
 
-            # Останавливаем любой контейнер, занявший порт 8080
+            # Останавливаем контейнеры, слушающие 8080
             CID=$(docker ps -q --filter "publish=8080")
             if [ -n "$CID" ]; then
+              echo "Stopping container on port 8080: $CID"
               docker stop $CID || true
               docker rm $CID || true
             fi
 
-            # На всякий: прибираем старый контейнер по имени
+            # Дополнительно чистим старый myapp, если был
             docker rm -f myapp || true
 
-            # Запускаем новый
+            # Запускаем новый контейнер
             docker run -d --name myapp --restart=always -p 8080:80 ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+
