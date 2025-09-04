@@ -1,32 +1,26 @@
-name: Deploy static site to EC2
+name: Build and Push to Docker Hub
 
 on:
   push:
-    branches: [ main ]  # или другой branch
+    branches: ["main"]
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.EC2_IP_ADDRESS }} >> ~/.ssh/known_hosts
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Upload site files to EC2
-      run: |
-        scp -r * ${{ secrets.SSH_USER }}@${{ secrets.EC2_IP_ADDRESS }}:/tmp/site/
-
-    - name: Move files to Nginx directory on EC2
-      run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.EC2_IP_ADDRESS }} << 'EOF'
-          sudo rm -rf /var/www/html/*
-          sudo mv /tmp/site/* /var/www/html/
-          sudo systemctl restart nginx
-        EOF
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
