@@ -1,25 +1,33 @@
-name: Build, Push and Deploy to EC2
+name: Build, Push & Deploy to EC2
 
 on:
   push:
     branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+      - name: Build & push image
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
@@ -31,8 +39,22 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
           script: |
+            set -e
+
+            # Обновляем образ
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-            docker stop myapp || true
-            docker rm myapp || true
-            docker run -d --name myapp -p 8080:80 ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+
+            # Останавливаем любой контейнер, занявший порт 8080
+            CID=$(docker ps -q --filter "publish=8080")
+            if [ -n "$CID" ]; then
+              docker stop $CID || true
+              docker rm $CID || true
+            fi
+
+            # На всякий: прибираем старый контейнер по имени
+            docker rm -f myapp || true
+
+            # Запускаем новый
+            docker run -d --name myapp --restart=always -p 8080:80 ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
