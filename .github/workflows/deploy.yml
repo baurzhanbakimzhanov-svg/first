@@ -32,10 +32,10 @@ jobs:
             set -e
             APP=myapp
             IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-            CID=$(sudo docker ps -aq --filter "name=$APP")
-            [ -n "$CID" ] && sudo docker rm -f $CID || true
-            sudo docker system prune -af --volumes || true
-            sudo docker pull $IMAGE
-            sudo docker run -d --name $APP --restart=always -p 8080:80 $IMAGE
-            sudo docker ps -a
-            sudo docker logs --tail=50 $APP || true
+            CID=$(docker ps -aq --filter "name=$APP")
+            [ -n "$CID" ] && docker rm -f $CID || true
+            docker system prune -af --volumes || true
+            docker pull $IMAGE
+            docker run -d --name $APP --restart=always -p 8080:80 $IMAGE
+            docker ps -a
+            docker logs --tail=50 $APP || true
