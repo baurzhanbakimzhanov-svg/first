@@ -31,7 +31,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.APP_NAME }}:latest
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.10
@@ -43,20 +43,16 @@ jobs:
           script: |
             set -e
 
-            # Обновляем образ
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+            echo "Pulling latest image..."
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.APP_NAME }}:latest
 
-            # Останавливаем контейнеры, слушающие 8080
-            CID=$(docker ps -q --filter "publish=8080")
-            if [ -n "$CID" ]; then
-              echo "Stopping container on port 8080: $CID"
-              docker stop $CID || true
-              docker rm $CID || true
-            fi
+            echo "Stopping old container if exists..."
+            docker stop ${{ secrets.APP_NAME }} || true
+            docker rm ${{ secrets.APP_NAME }} || true
 
-            # Дополнительно чистим старый myapp, если был
-            docker rm -f myapp || true
-
-            # Запускаем новый контейнер
-            docker run -d --name myapp --restart=always -p 8080:80 ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-
+            echo "Starting new container..."
+            docker run -d \
+              --name ${{ secrets.APP_NAME }} \
+              --restart=always \
+              -p ${{ secrets.APP_PORT }}:${{ secrets.CONTAINER_PORT }} \
+              ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.APP_NAME }}:latest
